@@ -17,33 +17,44 @@ int main(int argc, const char** argv)
     }
 
     std::vector<std::string> plugins;
-    LOG_D("load {} plugins", PluginManager::Instance().size());
-    PluginManager::Instance().find(plugins);
-    for (auto plugin : plugins)
-        LOG_D("plugin id: {}", plugin);
-
-    plugins.clear();
+    LOG_D("total {} plugins", PluginManager::Instance().size());
     PluginManager::Instance().find(plugins, PLUGIN_TYPE_CAMERA_AREA);
+    for (auto plugin : plugins)
+        LOG_D("camera area plugin: {}", plugin);
 
-    if(plugins.size() == 1)
-    {        
-        PluginFactory::Ptr factory = PluginManager::Instance().find(plugins.front());
-        std::vector<PluginInstanceProfile> profiles;
-        factory->find(profiles);
-        CameraAreaPlugin::Ptr camera = factory->create<CameraAreaPlugin>(0);
-        camera->open();
-        camera->onCapture([](const cv::Mat& image, const AbstractPlugin::Ptr& camera){
-            cv::namedWindow(camera->iprofile().model);
-            cv::imshow(camera->iprofile().model, image);
-        });
-        std::cin.get();
-        camera->close();
+    int index = 0;
+    do
+    {
+        std::cout << fmt::format("Please select plugin index(0 ~ {}):", plugins.size() - 1);
+        std::cin >> index;
+        std::cin.ignore();
+    } while (index < 0 || index >= plugins.size());
+    
+    LOG_D("select plugin[{}]: {}", index, plugins[index]);
+    PluginFactory::Ptr factory = PluginManager::Instance().find(plugins[index]);
+    if(factory == nullptr)
+    {
+        LOG_E("camera factory {} is null", plugins[index]);
+        return EC_FAIL_NOT_FOUND;
     }
-    else
+
+    std::vector<PluginInstanceProfile> profiles;
+    factory->find(profiles);
+    if(profiles.empty())
     {
         LOG_E("no camera plugin found");
         return EC_FAIL_NOT_FOUND;
     }
+
+    CameraAreaPlugin::Ptr camera = factory->create<CameraAreaPlugin>(0);
+    camera->open();
+    camera->onCapture([](const cv::Mat& image, const AbstractPlugin::Ptr& camera){
+        cv::namedWindow(camera->iprofile().model);
+        cv::imshow(camera->iprofile().model, image);
+    });
+    std::cout << "Press any key to close";
+    std::cin.get();
+    camera->close();
     
     return EC_SUCESS;
 }
