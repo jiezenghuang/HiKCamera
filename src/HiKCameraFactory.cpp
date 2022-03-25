@@ -15,20 +15,49 @@ HiKCameraFactory::HiKCameraFactory()
     profile_.version = "1.0.0";
     profile_.author = "Wingtech";
     profile_.description = "HiKRobotic Camera Plugin";
-
-    plugins_.emplace_back(std::make_shared<HiKCameraPlugin>(profile_));
 }
 
 HiKCameraFactory::~HiKCameraFactory() {}
 
 int HiKCameraFactory::find(std::vector<PluginInstanceProfile>& profiles) 
 {
-    if(plugins_.empty())
-        return EC_FAIL_NOT_FOUND;
-    
-    for(auto plugin : plugins_)
-            profiles.push_back(plugin->iprofile());
+    MV_CC_DEVICE_INFO_LIST cameras = { 0 };
+	int ec = MV_CC_EnumDevices(MV_GIGE_DEVICE | MV_USB_DEVICE, &cameras);
+	if (ec != MV_OK)
+	{
+		LOG_E("find camera fail, error {:#x}", static_cast<uint32_t>(ec));
+		return EC_FAIL_API_ERROR;
+	}
+	LOG_D("found {} cameras", cameras.nDeviceNum);
 
+    for (int i = 0; i < cameras.nDeviceNum; ++i)
+	{
+		void* handle = nullptr;
+        ec = MV_CC_CreateHandleWithoutLog(&handle, cameras.pDeviceInfo[i]);
+        //ec = MV_CC_CreateHandle(&handle, cameras.pDeviceInfo[i]);
+        if (ec != MV_OK)
+        {
+            LOG_W("create camera[{}] handle fail, error {:#x}", i, static_cast<uint32_t>(ec));
+            continue;
+        }
+
+        unsigned int access_mode = MV_ACCESS_Exclusive;
+        if (!MV_CC_IsDeviceAccessible(cameras.pDeviceInfo[i], access_mode))
+        {
+            LOG_W("open camera[{}] fail, camera is not accessible", i);
+            continue;
+        }
+
+        HiKCameraPlugin::Ptr camera = std::make_shared<HiKCameraPlugin>(profile_, handle);
+        ec = camera->open();
+        if (ec != EC_SUCESS)
+        {
+            camera->close();
+            return ec;
+        }
+        profiles.emplace_back(camera->iprofile());
+        plugins_.emplace_back(camera);
+	}
     return EC_SUCESS;
 }
     

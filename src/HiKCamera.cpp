@@ -6,8 +6,8 @@
 
 using namespace fal;
 
-HiKCameraPlugin::HiKCameraPlugin(const PluginProfile& profile)
-    : CameraAreaPlugin(profile), open_(false), exposure_(1000), trigger_(true)
+HiKCameraPlugin::HiKCameraPlugin(const PluginProfile& profile, void* handle)
+    : CameraAreaPlugin(profile), open_(false), exposure_(1000), trigger_(true), handle_(handle)
 {
     iprofile_.name = "VirtualCameraAreaPlugin";
     iprofile_.vendor = "Wingtech";
@@ -20,34 +20,156 @@ HiKCameraPlugin::~HiKCameraPlugin() {}
 
 int HiKCameraPlugin::open() 
 {            
-    if(!open_)
-        open_ = true;
-        
-    LOG_D("{} plugin {} open sucess", profile_.name, iprofile_.name);
+	if (handle_ == nullptr)
+		return EC_FAIL_ARGS_INVALID;
+
+	if (this->isOpen())
+		return EC_SUCESS;
+
+	int code = MV_CC_OpenDevice(handle_, MV_ACCESS_Exclusive);
+	if (code != MV_OK)
+	{
+        LOG_E("open camera fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_DEVICE_NOT_AVAILABLE;
+	}
+
+	code = MV_CC_SetEnumValue(handle_, "ExposureMode", MV_EXPOSURE_MODE_TIMED);
+	if (code != MV_OK)
+	{
+        LOG_E("set global exposure mode fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_API_ERROR;
+	}
+
+	code = MV_CC_SetEnumValue(handle_, "TriggerMode", MV_TRIGGER_MODE_OFF);
+	if (code != MV_OK)
+	{
+        LOG_E("turn off trigger mode fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_API_ERROR;
+	}
+
+	code = MV_CC_RegisterImageCallBackEx(handle_, ImageCallBack, this);
+	if (code != MV_OK)
+	{
+        LOG_E("set image call back fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_API_ERROR;
+	}
+
+	MV_IMAGE_BASIC_INFO image_info = { 0 };
+	code = MV_CC_GetImageInfo(handle_, &image_info);
+	if (MV_OK != code)
+	{
+        LOG_E("get image size fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_API_ERROR;
+	}
+
+	resolution_.height = image_info.nHeightValue;
+	resolution_.width = image_info.nWidthValue;
+
+	MV_CC_DEVICE_INFO device_info = { 0 };
+	code = MV_CC_GetDeviceInfo(handle_, &device_info);
+	if (code == MV_OK)
+	{
+		if (device_info.nTLayerType == MV_GIGE_DEVICE)
+		{
+			int nPacketSize = MV_CC_GetOptimalPacketSize(handle_);
+			if (nPacketSize > 0)
+			{
+				code = MV_CC_SetIntValue(handle_, "GevSCPSPacketSize", nPacketSize);
+				if (code != MV_OK)
+                    LOG_W("set packet size fail, error {:#x}", static_cast<uint32_t>(code));
+			}
+			iprofile_.vendor.assign((char*)device_info.SpecialInfo.stGigEInfo.chManufacturerName);
+			iprofile_.model.assign((char*)device_info.SpecialInfo.stGigEInfo.chModelName);
+			iprofile_.sn.assign((char*)device_info.SpecialInfo.stGigEInfo.chSerialNumber);
+			iprofile_.version.assign((char*)device_info.SpecialInfo.stGigEInfo.chDeviceVersion);
+			iprofile_.name.assign((char*)device_info.SpecialInfo.stGigEInfo.chUserDefinedName);
+		}
+		else
+		{
+			iprofile_.vendor.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chManufacturerName);
+			iprofile_.model.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chModelName);
+			iprofile_.sn.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chSerialNumber);
+			iprofile_.version.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chDeviceVersion);
+			iprofile_.name.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chUserDefinedName);
+		}
+	}
+
+	open_ = true;
+	LOG_D("open {} camera {} sucess, serial no {}, resolution {}", iprofile_.vendor,
+        iprofile_.model, iprofile_.sn, resolution_);
+
+	MVCC_ENUMVALUE pixel_type;
+	code = MV_CC_GetEnumValue(handle_, "PixelFormat", &pixel_type);
+	if (code == MV_OK && pixel_type.nCurValue != PixelType_Gvsp_Mono8)
+	{
+		LOG_W("camera using pixel format {:#x}, not Mono8 {:#x}", pixel_type.nCurValue, PixelType_Gvsp_Mono8);
+	}
+
+    if (pixel_type.nCurValue == PixelType_Gvsp_Mono8)
+    {
+        code = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2);
+        if (code != MV_OK)
+        {
+            LOG_W("set ADC bit depth fail, error {:#x}", static_cast<uint32_t>(code));
+            //return HY_FAIL_API_ERROR;
+        }
+    }
+
+    code = MV_CC_SetBoolValue(handle_, "AcquisitionFrameRateEnable", false);
+    if (code != MV_OK)
+    {
+        LOG_W("set frame rate enable fail, error {:#x}", static_cast<uint32_t>(code));
+        //return HY_FAIL_API_ERROR;
+    }
+
     return EC_SUCESS;
 }
 
 bool HiKCameraPlugin::isOpen() 
 {
-    return open_;
+	if (handle_ == nullptr)
+		return false;
+	return MV_CC_IsDeviceConnected(handle_);
 }
 
 int HiKCameraPlugin::setExposure(int us) 
 {
-    exposure_ = us;
-    LOG_D("{} plugin {} exposure set to {}", profile_.name, iprofile_.name, exposure_);
+    if (!this->isOpen())
+		return EC_FAIL_DEVICE_CLOSED;
+
+	int ec = MV_CC_SetExposureTime(handle_, us);
+	if (MV_OK != ec)
+	{
+        LOG_E("set exposure time fail, error {:#x}", static_cast<uint32_t>(ec));
+		return EC_FAIL_API_ERROR;
+	}
     return EC_SUCESS;
 }
 
 int HiKCameraPlugin::getExposure() 
 {
-    return exposure_;
+	if (!this->isOpen())
+		return EC_FAIL_DEVICE_CLOSED;
+
+	MVCC_FLOATVALUE val = { 0 };
+	int code = MV_CC_GetExposureTime(handle_, &val);
+	if (code != MV_OK)
+	{
+        LOG_E("get exposure time fail, error {:#x}", static_cast<uint32_t>(code));
+		return EC_FAIL_API_ERROR;
+	}
+	return static_cast<int>(val.fCurValue);
 }
 
 int HiKCameraPlugin::setTriggerMode(bool on) 
 {
+    int ec = MV_CC_SetEnumValue(handle_, "TriggerMode", (on ? MV_TRIGGER_MODE_ON : MV_TRIGGER_MODE_OFF));
+	if (ec != MV_OK)
+	{
+		LOG_E("turn {} trigger mode fail, error {:#x}", (on ? "on" : "off"), static_cast<uint32_t>(ec));
+		return EC_FAIL_API_ERROR;
+	}
     trigger_ = on;
-    LOG_D("{} plugin {} trigger mode set to {}", profile_.name, iprofile_.name, trigger_);
     return EC_SUCESS;
 }
 
@@ -58,8 +180,28 @@ bool HiKCameraPlugin::getTriggerMode()
 
 int HiKCameraPlugin::setTriggerSource(const std::string& source) 
 {
+    int ec = EC_SUCESS;
+    if(source == "Software")
+        ec = MV_CC_SetEnumValue(handle_, "TriggerSource", MV_TRIGGER_SOURCE_SOFTWARE);
+    else if(source == "Line0")
+        ec = MV_CC_SetEnumValue(handle_, "TriggerSource", MV_TRIGGER_SOURCE_LINE0);
+    else if(source == "Line1")
+        ec = MV_CC_SetEnumValue(handle_, "TriggerSource", MV_TRIGGER_SOURCE_LINE1);
+    else if(source == "Line2")
+        ec = MV_CC_SetEnumValue(handle_, "TriggerSource", MV_TRIGGER_SOURCE_LINE2);
+    else if(source == "Line3")
+        ec = MV_CC_SetEnumValue(handle_, "TriggerSource", MV_TRIGGER_SOURCE_LINE3);
+    else 
+    {
+        LOG_E("invalid triger source {}", source);
+        return EC_FAIL_ARGS_INVALID;
+    }
+    if (ec != MV_OK)
+    {
+        LOG_E("set trigger source to {} fail, error {:#x}", source, static_cast<uint32_t>(ec));
+        return EC_FAIL_API_ERROR;
+    }
     source_ = source;
-    LOG_D("{} plugin {} trigger source set to {}", profile_.name, iprofile_.name, source_);
     return EC_SUCESS;
 }
 
@@ -70,28 +212,79 @@ const std::string& HiKCameraPlugin::getTriggerSource()
 
 int HiKCameraPlugin::trigger() 
 {
-    if(file_.empty())
-    {
-        LOG_E("{} plugin {} image file is empty", profile_.name, iprofile_.name);
-        return EC_FAIL_NOT_FOUND;
-    }
+	if (!this->isOpen())
+		return EC_FAIL_DEVICE_CLOSED;
 
-    cv::Mat image = cv::imread(file_, cv::IMREAD_UNCHANGED);
-    if(image.empty())
-    {
-        LOG_E("{} plugin {} read image file is empty", profile_.name, iprofile_.name);
-        return EC_FAIL_NOT_FOUND;
-    }
-
-    if(capture_callback_ != nullptr)
-        capture_callback_(image, shared_from_this());
-    
-    LOG_D("{} plugin {} trigger sucess", profile_.name, iprofile_.name);
-    return EC_SUCESS;
+	int ec = MV_CC_TriggerSoftwareExecute(handle_);
+	if (ec != MV_OK)
+	{
+        LOG_E("soft trigger fail, error {:#x}", static_cast<uint32_t>(ec));
+		return EC_FAIL_API_ERROR;
+	}
+	return EC_SUCESS;
 }
 
 void HiKCameraPlugin::close() 
 {
     open_ = false;
     LOG_D("{} plugin {} close", profile_.name, iprofile_.name);
+}
+
+void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_OUT_INFO_EX * pFrameInfo, void * pUser)
+{
+	HiKCameraPlugin* instance = static_cast<HiKCameraPlugin*>(pUser);
+	if (pFrameInfo && instance->capture_callback_ != nullptr)
+	{
+		cv::Mat img;
+		if (pFrameInfo->enPixelType != PixelType_Gvsp_Mono8)
+		{
+			if (instance->convert_buffer_ == nullptr)
+			{
+				instance->convert_buffer_size_ = pFrameInfo->nWidth * pFrameInfo->nHeight;
+				if (instance->convert_buffer_size_ % 16 != 0)
+				{
+					LOG_E("invalid buffer size {} x {}", pFrameInfo->nWidth, pFrameInfo->nHeight);
+					return;
+				}
+				instance->convert_buffer_ = new uint8_t[instance->convert_buffer_size_];
+				if (instance->convert_buffer_ == nullptr)
+				{
+					LOG_E("malloc convert buffer fail");
+					return;
+				}
+				//HY_LOG_SEV(debug) << "convert buffer malloc, size " << instance->convert_buffer_size_;
+			}
+
+			MV_CC_PIXEL_CONVERT_PARAM param = { 0 };
+			memset(&param, 0, sizeof(MV_CC_PIXEL_CONVERT_PARAM));
+			param.nWidth = pFrameInfo->nWidth; 
+			param.nHeight = pFrameInfo->nHeight;  
+			param.pSrcData = pImage;      
+			param.nSrcDataLen = pFrameInfo->nFrameLen;  
+			param.enSrcPixelType = pFrameInfo->enPixelType;  
+			param.enDstPixelType = PixelType_Gvsp_Mono8;
+			param.pDstBuffer = instance->convert_buffer_;
+			param.nDstBufferSize = instance->convert_buffer_size_;
+			int code = MV_CC_ConvertPixelType(instance->handle_, &param);
+			if (code != MV_OK)
+			{
+                LOG_E("convert pixel type fail, error {:#x}", static_cast<uint32_t>(code));
+				return;
+			}
+			img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, instance->convert_buffer_);
+		}
+		else
+		{
+			img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, pImage);
+		}
+				
+		try
+		{
+			instance->capture_callback_(img.clone(), instance->shared_from_this());
+		}
+		catch (const std::exception& ex)
+		{
+			LOG_E("on capture image catch exception: ", ex.what());
+		}
+	}
 }

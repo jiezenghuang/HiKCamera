@@ -12,3 +12,4 @@ find_package(fal REQUIRED)
 find_package(MVS REQUIRED)
 
 add_subdirectory(src)
+add_subdirectory(app)

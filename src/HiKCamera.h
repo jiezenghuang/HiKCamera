@@ -1,5 +1,7 @@
 #include <fal/device/CameraArea.h>
 
+#include "MvCameraControl.h"
+
 namespace fal
 {
     class HiKCameraPlugin : public CameraAreaPlugin
@@ -7,7 +9,7 @@ namespace fal
     public:
         FAL_SHARED_PTR(HiKCameraPlugin);
 
-        HiKCameraPlugin(const PluginProfile& profile);
+        HiKCameraPlugin(const PluginProfile& profile, void* handle);
         virtual ~HiKCameraPlugin();
 
         virtual int open() override;
@@ -31,8 +33,14 @@ namespace fal
         virtual void close() override;
 
     protected:
+        static void __stdcall ImageCallBack(unsigned char *pImage, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser);
+
+    protected:
         std::string file_, source_;
         bool open_, trigger_;
         int exposure_;
+        void* handle_;
+        uint8_t* convert_buffer_;
+        uint32_t convert_buffer_size_;
     };
 }
