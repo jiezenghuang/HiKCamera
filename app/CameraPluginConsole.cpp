@@ -26,17 +26,16 @@ int main(int argc, const char** argv)
     for (auto plugin : plugins)
         LOG_D("camera area plugin: {}", plugin);
 
-    int index = 0;
+    int index = 0, max = plugins.size() - 1;
     do
     {
-        std::cout << fmt::format("Please select plugin index(0 ~ {}):", plugins.size() - 1);
+        std::cout << fmt::format("Please select plugin index(0 ~ {}):", max);
         std::cin >> index;
-        std::cin.ignore();
-    } while (index >= plugins.size());
+    } while (index > max);
 
     if(index < 0)
     {
-        LOG_D("select nothing, exit..");
+        LOG_D("select nothing, exit");
         return EC_SUCESS;
     }
     
