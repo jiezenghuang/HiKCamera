@@ -11,5 +11,7 @@ find_package(fal REQUIRED)
 
 find_package(MVS REQUIRED)
 
+set(PLUGIN_INSTALL_LIBDIR "plugin/camera/HiKRobotic")
+
 add_subdirectory(src)
 add_subdirectory(app)

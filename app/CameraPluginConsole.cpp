@@ -9,7 +9,11 @@ using namespace fal;
 
 int main(int argc, const char** argv)
 {
-    PluginManager::Instance().load(".");
+    if(argc > 1)
+        PluginManager::Instance().load(argv[1]);
+    else
+        PluginManager::Instance().load(".");
+
     if(PluginManager::Instance().size() == 0)
     {
         LOG_E("no plugin found");
@@ -28,7 +32,13 @@ int main(int argc, const char** argv)
         std::cout << fmt::format("Please select plugin index(0 ~ {}):", plugins.size() - 1);
         std::cin >> index;
         std::cin.ignore();
-    } while (index < 0 || index >= plugins.size());
+    } while (index >= plugins.size());
+
+    if(index < 0)
+    {
+        LOG_D("select nothing, exit..");
+        return EC_SUCESS;
+    }
     
     LOG_D("select plugin[{}]: {}", index, plugins[index]);
     PluginFactory::Ptr factory = PluginManager::Instance().find(plugins[index]);
@@ -48,7 +58,7 @@ int main(int argc, const char** argv)
 
     CameraAreaPlugin::Ptr camera = factory->create<CameraAreaPlugin>(0);
     camera->open();
-    camera->onCapture([](const cv::Mat& image, const AbstractPlugin::Ptr& camera){
+    camera->onCapture([&](const cv::Mat& image){
         cv::namedWindow(camera->iprofile().model);
         cv::imshow(camera->iprofile().model, image);
     });
