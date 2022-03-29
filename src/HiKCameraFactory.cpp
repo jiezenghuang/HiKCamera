@@ -30,8 +30,13 @@ int HiKCameraFactory::find(std::vector<PluginInstanceProfile>& profiles)
 	}
 	LOG_D("found {} cameras", cameras.nDeviceNum);
 
+    plugins_.clear(); // 清空插件实例
+    profiles.clear();
     for (int i = 0; i < cameras.nDeviceNum; ++i)
 	{
+        PluginInstanceProfile profile;
+        profile.available = false;
+
 		void* handle = nullptr;
         ec = MV_CC_CreateHandleWithoutLog(&handle, cameras.pDeviceInfo[i]);
         //ec = MV_CC_CreateHandle(&handle, cameras.pDeviceInfo[i]);
@@ -41,22 +46,19 @@ int HiKCameraFactory::find(std::vector<PluginInstanceProfile>& profiles)
             continue;
         }
 
+        HiKCameraPlugin::Ptr camera = std::make_shared<HiKCameraPlugin>(profile_, handle);
+        plugins_.emplace_back(camera);
+        profiles.emplace_back(profile);
+
         unsigned int access_mode = MV_ACCESS_Exclusive;
         if (!MV_CC_IsDeviceAccessible(cameras.pDeviceInfo[i], access_mode))
         {
-            LOG_W("open camera[{}] fail, camera is not accessible", i);
+            LOG_W("open camera[{}] fail, camera is not accessible", i);            
             continue;
         }
 
-        HiKCameraPlugin::Ptr camera = std::make_shared<HiKCameraPlugin>(profile_, handle);
-        ec = camera->open();
-        if (ec != EC_SUCESS)
-        {
-            camera->close();
-            return ec;
-        }
-        profiles.emplace_back(camera->iprofile());
-        plugins_.emplace_back(camera);
+        HiKCameraPlugin::ParseProfile(*cameras.pDeviceInfo[i], profile);
+        profile.available = true;
 	}
     return EC_SUCESS;
 }

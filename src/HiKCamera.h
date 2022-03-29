@@ -12,6 +12,8 @@ namespace fal
         HiKCameraPlugin(const PluginProfile& profile, void* handle);
         virtual ~HiKCameraPlugin();
 
+        static void ParseProfile(const MV_CC_DEVICE_INFO& info, PluginInstanceProfile& profile);
+
         virtual int open() override;
 
         virtual bool isOpen() override;

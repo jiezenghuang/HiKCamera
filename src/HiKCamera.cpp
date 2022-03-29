@@ -18,6 +18,26 @@ HiKCameraPlugin::HiKCameraPlugin(const PluginProfile& profile, void* handle)
 
 HiKCameraPlugin::~HiKCameraPlugin() {}
 
+void HiKCameraPlugin::ParseProfile(const MV_CC_DEVICE_INFO& info, PluginInstanceProfile& profile)
+{
+	if (info.nTLayerType == MV_GIGE_DEVICE)
+	{
+		profile.vendor.assign((char*)info.SpecialInfo.stGigEInfo.chManufacturerName);
+		profile.model.assign((char*)info.SpecialInfo.stGigEInfo.chModelName);
+		profile.sn.assign((char*)info.SpecialInfo.stGigEInfo.chSerialNumber);
+		profile.version.assign((char*)info.SpecialInfo.stGigEInfo.chDeviceVersion);
+		profile.name.assign((char*)info.SpecialInfo.stGigEInfo.chUserDefinedName);
+	}
+	else
+	{
+		profile.vendor.assign((char*)info.SpecialInfo.stUsb3VInfo.chManufacturerName);
+		profile.model.assign((char*)info.SpecialInfo.stUsb3VInfo.chModelName);
+		profile.sn.assign((char*)info.SpecialInfo.stUsb3VInfo.chSerialNumber);
+		profile.version.assign((char*)info.SpecialInfo.stUsb3VInfo.chDeviceVersion);
+		profile.name.assign((char*)info.SpecialInfo.stUsb3VInfo.chUserDefinedName);
+	}
+}
+
 int HiKCameraPlugin::open() 
 {            
 	if (handle_ == nullptr)
@@ -78,20 +98,9 @@ int HiKCameraPlugin::open()
 				if (code != MV_OK)
                     LOG_W("set packet size fail, error {:#x}", static_cast<uint32_t>(code));
 			}
-			iprofile_.vendor.assign((char*)device_info.SpecialInfo.stGigEInfo.chManufacturerName);
-			iprofile_.model.assign((char*)device_info.SpecialInfo.stGigEInfo.chModelName);
-			iprofile_.sn.assign((char*)device_info.SpecialInfo.stGigEInfo.chSerialNumber);
-			iprofile_.version.assign((char*)device_info.SpecialInfo.stGigEInfo.chDeviceVersion);
-			iprofile_.name.assign((char*)device_info.SpecialInfo.stGigEInfo.chUserDefinedName);
 		}
-		else
-		{
-			iprofile_.vendor.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chManufacturerName);
-			iprofile_.model.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chModelName);
-			iprofile_.sn.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chSerialNumber);
-			iprofile_.version.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chDeviceVersion);
-			iprofile_.name.assign((char*)device_info.SpecialInfo.stUsb3VInfo.chUserDefinedName);
-		}
+		ParseProfile(device_info, iprofile_);
+		iprofile_.available = true;
 	}
 
 	open_ = true;
