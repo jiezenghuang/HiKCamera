@@ -1,7 +1,7 @@
 #include <fal/common/Logger.h>
 #include <fal/common/ErrorCategory.h>
 #include <fal/plugin/PluginManager.hpp>
-#include <fal/device/CameraArea.h>
+#include <fal/device/AbstractCameraPlugin.h>
 
 #include <iostream>
 
@@ -55,7 +55,7 @@ int main(int argc, const char** argv)
         return EC_FAIL_NOT_FOUND;
     }
 
-    CameraAreaPlugin::Ptr camera = factory->create<CameraAreaPlugin>(0);
+    AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0);
     camera->open();
     camera->onCapture([&](const cv::Mat& image){
         cv::namedWindow(camera->iprofile().model);

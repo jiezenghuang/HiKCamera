@@ -7,13 +7,13 @@
 using namespace fal;
 
 HiKCameraPlugin::HiKCameraPlugin(const PluginProfile& profile, void* handle)
-    : CameraAreaPlugin(profile), open_(false), exposure_(1000), trigger_(true), handle_(handle)
+    : AbstractCameraPlugin(profile), open_(false), exposure_(1000), trigger_(true), handle_(handle)
 {
-    iprofile_.name = "VirtualCameraAreaPlugin";
+    iprofile_.name = "HiKCameraPlugin";
     iprofile_.vendor = "Wingtech";
-    iprofile_.model = "C1";
-    iprofile_.sn = "V123456789d";
-    iprofile_.version = "1.21";
+    iprofile_.model = "Unkown";
+    iprofile_.sn = "Undefine";
+    iprofile_.version = "Unkown";
 }
 
 HiKCameraPlugin::~HiKCameraPlugin() {}
@@ -26,7 +26,7 @@ void HiKCameraPlugin::ParseProfile(const MV_CC_DEVICE_INFO& info, PluginInstance
 		profile.model.assign((char*)info.SpecialInfo.stGigEInfo.chModelName);
 		profile.sn.assign((char*)info.SpecialInfo.stGigEInfo.chSerialNumber);
 		profile.version.assign((char*)info.SpecialInfo.stGigEInfo.chDeviceVersion);
-		profile.name.assign((char*)info.SpecialInfo.stGigEInfo.chUserDefinedName);
+		//profile.name.assign((char*)info.SpecialInfo.stGigEInfo.chUserDefinedName);
 	}
 	else
 	{
@@ -34,7 +34,7 @@ void HiKCameraPlugin::ParseProfile(const MV_CC_DEVICE_INFO& info, PluginInstance
 		profile.model.assign((char*)info.SpecialInfo.stUsb3VInfo.chModelName);
 		profile.sn.assign((char*)info.SpecialInfo.stUsb3VInfo.chSerialNumber);
 		profile.version.assign((char*)info.SpecialInfo.stUsb3VInfo.chDeviceVersion);
-		profile.name.assign((char*)info.SpecialInfo.stUsb3VInfo.chUserDefinedName);
+		//profile.name.assign((char*)info.SpecialInfo.stUsb3VInfo.chUserDefinedName);
 	}
 }
 
@@ -82,8 +82,8 @@ int HiKCameraPlugin::open()
 		return EC_FAIL_API_ERROR;
 	}
 
-	resolution_.height = image_info.nHeightValue;
-	resolution_.width = image_info.nWidthValue;
+	property_["Height"] = image_info.nHeightValue;
+	property_["Width"] = image_info.nWidthValue;
 
 	MV_CC_DEVICE_INFO device_info = { 0 };
 	code = MV_CC_GetDeviceInfo(handle_, &device_info);
@@ -104,8 +104,8 @@ int HiKCameraPlugin::open()
 	}
 
 	open_ = true;
-	LOG_D("open {} camera {} sucess, serial no {}, resolution {}", iprofile_.vendor,
-        iprofile_.model, iprofile_.sn, resolution_);
+	LOG_D("open {} camera {} sucess, serial no {}, resolution {} x {}", iprofile_.vendor,
+        iprofile_.model, iprofile_.sn, property_["Width"], property_["Height"]);
 
 	MVCC_ENUMVALUE pixel_type;
 	code = MV_CC_GetEnumValue(handle_, "PixelFormat", &pixel_type);
@@ -152,6 +152,7 @@ int HiKCameraPlugin::setExposure(int us)
         LOG_E("set exposure time fail, error {:#x}", static_cast<uint32_t>(ec));
 		return EC_FAIL_API_ERROR;
 	}
+	property_["Exposure"] = us;
     return EC_SUCESS;
 }
 
@@ -167,7 +168,8 @@ int HiKCameraPlugin::getExposure()
         LOG_E("get exposure time fail, error {:#x}", static_cast<uint32_t>(code));
 		return EC_FAIL_API_ERROR;
 	}
-	return static_cast<int>(val.fCurValue);
+	property_["Exposure"] = val.fCurValue;
+	return property_["Exposure"];
 }
 
 int HiKCameraPlugin::setTriggerMode(bool on) 
@@ -178,13 +180,13 @@ int HiKCameraPlugin::setTriggerMode(bool on)
 		LOG_E("turn {} trigger mode fail, error {:#x}", (on ? "on" : "off"), static_cast<uint32_t>(ec));
 		return EC_FAIL_API_ERROR;
 	}
-    trigger_ = on;
+    property_["TriggerMode"] = on;
     return EC_SUCESS;
 }
 
 bool HiKCameraPlugin::getTriggerMode() 
 {
-    return trigger_;
+    return property_["TriggerMode"];
 }
 
 int HiKCameraPlugin::setTriggerSource(const std::string& source) 
@@ -210,13 +212,13 @@ int HiKCameraPlugin::setTriggerSource(const std::string& source)
         LOG_E("set trigger source to {} fail, error {:#x}", source, static_cast<uint32_t>(ec));
         return EC_FAIL_API_ERROR;
     }
-    source_ = source;
+    property_["TriggerSource"] = source;
     return EC_SUCESS;
 }
 
-const std::string& HiKCameraPlugin::getTriggerSource() 
+std::string HiKCameraPlugin::getTriggerSource() 
 {
-    return source_;
+    return property_["TriggerSource"];
 }
 
 int HiKCameraPlugin::trigger() 

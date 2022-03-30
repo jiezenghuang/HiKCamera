@@ -1,10 +1,10 @@
-#include <fal/device/CameraArea.h>
+#include <fal/device/AbstractCameraPlugin.h>
 
 #include "MvCameraControl.h"
 
 namespace fal
 {
-    class HiKCameraPlugin : public CameraAreaPlugin
+    class HiKCameraPlugin : public AbstractCameraPlugin
     {
     public:
         FAL_SHARED_PTR(HiKCameraPlugin);
@@ -28,7 +28,7 @@ namespace fal
         
         virtual int setTriggerSource(const std::string& source) override;
 
-        virtual const std::string& getTriggerSource() override;
+        virtual std::string getTriggerSource() override;
         
         virtual int trigger() override;
         
