@@ -57,7 +57,7 @@ int main(int argc, const char** argv)
 
     AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0);
     camera->open();
-    camera->onCapture([&](const cv::Mat& image){
+    camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){
         cv::namedWindow(camera->iprofile().model);
         cv::imshow(camera->iprofile().model, image);
     });

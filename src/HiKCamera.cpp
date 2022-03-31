@@ -291,7 +291,7 @@ void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_O
 				
 		try
 		{
-			instance->capture_callback_(img.clone());
+			instance->capture_callback_(instance, img.clone());
 		}
 		catch (const std::exception& ex)
 		{
