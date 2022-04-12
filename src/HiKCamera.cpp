@@ -130,7 +130,6 @@ int HiKCameraPlugin::open()
         LOG_W("set frame rate enable fail, error {:#x}", static_cast<uint32_t>(code));
         //return HY_FAIL_API_ERROR;
     }
-
     return EC_SUCESS;
 }
 
@@ -181,6 +180,7 @@ int HiKCameraPlugin::setTriggerMode(bool on)
 		return EC_FAIL_API_ERROR;
 	}
     property_["TriggerMode"] = on;
+	LOG_D("trigger mode set to {}", on);
     return EC_SUCESS;
 }
 
@@ -213,6 +213,7 @@ int HiKCameraPlugin::setTriggerSource(const std::string& source)
         return EC_FAIL_API_ERROR;
     }
     property_["TriggerSource"] = source;
+	LOG_D("trigger source set to {}", source);
     return EC_SUCESS;
 }
 
@@ -232,6 +233,28 @@ int HiKCameraPlugin::trigger()
         LOG_E("soft trigger fail, error {:#x}", static_cast<uint32_t>(ec));
 		return EC_FAIL_API_ERROR;
 	}
+	return EC_SUCESS;
+}
+
+int HiKCameraPlugin::start()
+{
+	int code = MV_CC_StartGrabbing(handle_);
+	if (code != MV_OK)
+    {
+        LOG_E("start grabbing fail, error {:#x}", static_cast<uint32_t>(code));
+        return EC_FAIL_API_ERROR;
+    }
+	return EC_SUCESS;
+}
+
+int HiKCameraPlugin::stop()
+{
+	int code = MV_CC_StopGrabbing(handle_);
+	if (code != MV_OK)
+    {
+        LOG_E("stop grabbing fail, error {:#x}", static_cast<uint32_t>(code));
+        return EC_FAIL_API_ERROR;
+    }
 	return EC_SUCESS;
 }
 

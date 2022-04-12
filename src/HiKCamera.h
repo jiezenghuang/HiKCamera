@@ -31,6 +31,10 @@ namespace fal
         virtual std::string getTriggerSource() override;
         
         virtual int trigger() override;
+
+        virtual int start() override;
+
+        virtual int stop() override;
         
         virtual void close() override;
 

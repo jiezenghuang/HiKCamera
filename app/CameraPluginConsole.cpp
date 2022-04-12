@@ -31,6 +31,7 @@ int main(int argc, const char** argv)
     {
         std::cout << fmt::format("Please select plugin index(0 ~ {}):", max);
         std::cin >> index;
+        std::cin.ignore();
     } while (index > max);
 
     if(index < 0)
@@ -55,14 +56,25 @@ int main(int argc, const char** argv)
         return EC_FAIL_NOT_FOUND;
     }
 
-    AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0);
-    camera->open();
-    camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){
-        cv::namedWindow(camera->iprofile().model);
+    AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0); 
+    cv::namedWindow(camera->iprofile().model);   
+    camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){        
         cv::imshow(camera->iprofile().model, image);
+        cv::waitKey();
     });
+    camera->open();
+
+    bool trigger = true;
+    camera->setTriggerMode(trigger);
+    if(trigger)
+        camera->setTriggerSource("Software");
+
+    camera->start();
+    if(trigger)
+        camera->trigger();
     std::cout << "Press any key to close";
     std::cin.get();
+    camera->stop();
     camera->close();
     
     return EC_SUCESS;
