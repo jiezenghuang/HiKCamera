@@ -114,22 +114,22 @@ int HiKCameraPlugin::open()
 		LOG_W("camera using pixel format {:#x}, not Mono8 {:#x}", pixel_type.nCurValue, PixelType_Gvsp_Mono8);
 	}
 
-    if (pixel_type.nCurValue == PixelType_Gvsp_Mono8)
-    {
-        code = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2);
-        if (code != MV_OK)
-        {
-            LOG_W("set ADC bit depth fail, error {:#x}", static_cast<uint32_t>(code));
-            //return HY_FAIL_API_ERROR;
-        }
-    }
+    // if (pixel_type.nCurValue == PixelType_Gvsp_Mono8)
+    // {
+    //     code = MV_CC_SetEnumValue(handle_, "ADCBitDepth", 2);
+    //     if (code != MV_OK)
+    //     {
+    //         LOG_W("set ADC bit depth fail, error {:#x}", static_cast<uint32_t>(code));
+    //         //return HY_FAIL_API_ERROR;
+    //     }
+    // }
 
-    code = MV_CC_SetBoolValue(handle_, "AcquisitionFrameRateEnable", false);
-    if (code != MV_OK)
-    {
-        LOG_W("set frame rate enable fail, error {:#x}", static_cast<uint32_t>(code));
-        //return HY_FAIL_API_ERROR;
-    }
+    // code = MV_CC_SetBoolValue(handle_, "AcquisitionFrameRateEnable", false);
+    // if (code != MV_OK)
+    // {
+    //     LOG_W("set frame rate enable fail, error {:#x}", static_cast<uint32_t>(code));
+    //     //return HY_FAIL_API_ERROR;
+    // }
     return EC_SUCESS;
 }
 

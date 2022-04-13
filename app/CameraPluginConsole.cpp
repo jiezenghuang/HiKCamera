@@ -56,6 +56,10 @@ int main(int argc, const char** argv)
         return EC_FAIL_NOT_FOUND;
     }
 
+    for(auto profile : profiles)
+        LOG_D("name:{}, sn:{}, vendor:{}, version:{}, model:{}, workspace:{}, available:{}", profile.name, profile.sn, 
+            profile.vendor, profile.version, profile.model, profile.workspace, profile.available);
+
     AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0); 
     cv::namedWindow(camera->iprofile().model);   
     camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){        
