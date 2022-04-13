@@ -186,6 +186,14 @@ int HiKCameraPlugin::setTriggerMode(bool on)
 
 bool HiKCameraPlugin::getTriggerMode() 
 {
+	MVCC_ENUMVALUE trigger_mode;
+	int ec = MV_CC_GetEnumValue(handle_, "TriggerMode", &trigger_mode);
+	if (ec != MV_OK)
+	{
+		LOG_E("get trigger mode fail, error {:#x}", static_cast<uint32_t>(ec));
+		return EC_FAIL_API_ERROR;
+	}
+	property_["TriggerMode"] = trigger_mode.nCurValue == MV_TRIGGER_MODE_ON;
     return property_["TriggerMode"];
 }
 
@@ -219,6 +227,35 @@ int HiKCameraPlugin::setTriggerSource(const std::string& source)
 
 std::string HiKCameraPlugin::getTriggerSource() 
 {
+	property_["TriggerMode"] = "Unknown";
+	MVCC_ENUMVALUE trigger_source;
+	int ec = MV_CC_GetEnumValue(handle_, "TriggerSource", &trigger_source);
+	if (ec != MV_OK)
+	{
+		LOG_E("get trigger source fail, error {:#x}", static_cast<uint32_t>(ec));
+		return property_["TriggerMode"];
+	}
+
+	switch (trigger_source.nCurValue)
+	{
+	case MV_TRIGGER_SOURCE_SOFTWARE:
+		property_["TriggerSource"] = "Software";
+		break;
+	case MV_TRIGGER_SOURCE_LINE0:
+		property_["TriggerSource"] = "Line0";
+		break;
+	case MV_TRIGGER_SOURCE_LINE1:
+		property_["TriggerSource"] = "Line1";
+		break;
+	case MV_TRIGGER_SOURCE_LINE2:
+		property_["TriggerSource"] = "Line2";
+		break;
+	case MV_TRIGGER_SOURCE_LINE3:
+		property_["TriggerSource"] = "Line3";
+		break;
+	default:
+		break;
+	}
     return property_["TriggerSource"];
 }
 
