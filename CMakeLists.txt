@@ -15,3 +15,7 @@ set(PLUGIN_INSTALL_LIBDIR "plugin/camera/HiKRobotic")
 
 add_subdirectory(src)
 add_subdirectory(app)
+
+install(FILES readme.md
+    DESTINATION
+    ${PLUGIN_INSTALL_LIBDIR})
