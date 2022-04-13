@@ -60,9 +60,9 @@ int main(int argc, const char** argv)
         LOG_D("name:{}, sn:{}, vendor:{}, version:{}, model:{}, workspace:{}, available:{}", profile.name, profile.sn, 
             profile.vendor, profile.version, profile.model, profile.workspace, profile.available);
 
-    AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0); 
-    cv::namedWindow(camera->iprofile().model);   
-    camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){        
+    AbstractCameraPlugin::Ptr camera = factory->create<AbstractCameraPlugin>(0);       
+    camera->onCapture([&](const AbstractCameraPlugin* sendor, const cv::Mat& image){   
+        cv::namedWindow(camera->iprofile().model);      
         cv::imshow(camera->iprofile().model, image);
         cv::waitKey();
     });
@@ -73,11 +73,14 @@ int main(int argc, const char** argv)
     if(trigger)
         camera->setTriggerSource("Software");
 
+    camera->setExposure(159000);
     camera->start();
     if(trigger)
         camera->trigger();
     std::cout << "Press any key to close";
     std::cin.get();
+
+    camera->save("camera.json");
     camera->stop();
     camera->close();
     
