@@ -9,6 +9,7 @@ using namespace fal;
 
 int main(int argc, const char** argv)
 {
+    Logger::Instance().file();
     if(argc > 1)
         PluginManager::Instance().load(argv[1]);
     else
@@ -23,8 +24,8 @@ int main(int argc, const char** argv)
     std::vector<std::string> plugins;
     LOG_D("total {} plugins", PluginManager::Instance().size());
     PluginManager::Instance().find(plugins, PLUGIN_TYPE_CAMERA_AREA);
-    for (auto plugin : plugins)
-        LOG_D("camera area plugin: {}", plugin);
+    for (size_t i = 0; i < plugins.size(); ++i)
+        LOG_D("camera area plugin: [{}]{}", i, plugins[i]);
 
     int index = 0, max = plugins.size() - 1;
     do
@@ -68,12 +69,12 @@ int main(int argc, const char** argv)
     });
     camera->open();
 
-    bool trigger = true;
+    bool trigger = false;
     camera->setTriggerMode(trigger);
     if(trigger)
         camera->setTriggerSource("Software");
 
-    camera->setExposure(159000);
+    camera->setExposure(0);
     camera->start();
     if(trigger)
         camera->trigger();

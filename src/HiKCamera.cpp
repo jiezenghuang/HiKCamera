@@ -105,7 +105,7 @@ int HiKCameraPlugin::open()
 
 	open_ = true;
 	LOG_D("open {} camera {} sucess, serial no {}, resolution {} x {}", iprofile_.vendor,
-        iprofile_.model, iprofile_.sn, property_["Width"], property_["Height"]);
+        iprofile_.model, iprofile_.sn, property_["Width"].get<int>(), property_["Height"].get<int>());
 
 	MVCC_ENUMVALUE pixel_type;
 	code = MV_CC_GetEnumValue(handle_, "PixelFormat", &pixel_type);
