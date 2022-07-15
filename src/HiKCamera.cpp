@@ -307,11 +307,69 @@ void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_O
 	if (pFrameInfo && instance->capture_callback_ != nullptr)
 	{
 		cv::Mat img;
-		if (pFrameInfo->enPixelType != PixelType_Gvsp_Mono8)
+		MvGvspPixelType enDstPixelType = PixelType_Gvsp_Undefined;
+		int channel = 1;
+		bool convert = false;
+		switch (pFrameInfo->enPixelType)
 		{
-			if (instance->convert_buffer_ == nullptr)
+		case PixelType_Gvsp_BGR8_Packed:
+		case PixelType_Gvsp_YUV422_Packed:
+		case PixelType_Gvsp_YUV422_YUYV_Packed:
+		case PixelType_Gvsp_BayerGR8:
+		case PixelType_Gvsp_BayerRG8:
+		case PixelType_Gvsp_BayerGB8:
+		case PixelType_Gvsp_BayerBG8:
+		case PixelType_Gvsp_BayerGB10:
+		case PixelType_Gvsp_BayerGB10_Packed:
+		case PixelType_Gvsp_BayerBG10:
+		case PixelType_Gvsp_BayerBG10_Packed:
+		case PixelType_Gvsp_BayerRG10:
+		case PixelType_Gvsp_BayerRG10_Packed:
+		case PixelType_Gvsp_BayerGR10:
+		case PixelType_Gvsp_BayerGR10_Packed:
+		case PixelType_Gvsp_BayerGB12:
+		case PixelType_Gvsp_BayerGB12_Packed:
+		case PixelType_Gvsp_BayerBG12:
+		case PixelType_Gvsp_BayerBG12_Packed:
+		case PixelType_Gvsp_BayerRG12:
+		case PixelType_Gvsp_BayerRG12_Packed:
+		case PixelType_Gvsp_BayerGR12:
+		case PixelType_Gvsp_BayerGR12_Packed:
+			enDstPixelType = PixelType_Gvsp_RGB8_Packed;
+			channel = 3;
+			convert = true;
+			break;
+		case PixelType_Gvsp_Mono10:
+		case PixelType_Gvsp_Mono10_Packed:
+		case PixelType_Gvsp_Mono12:
+		case PixelType_Gvsp_Mono12_Packed:
+			enDstPixelType = PixelType_Gvsp_Mono8;
+			channel = 1;
+			convert = true;
+			break;
+		case PixelType_Gvsp_Mono8:
+			enDstPixelType = PixelType_Gvsp_Mono8;
+			channel = 1;
+			break;
+		default:
+			break;
+		}
+
+		if(enDstPixelType == PixelType_Gvsp_Undefined)
+		{
+			LOG_E("undefine pixel type {:#x}", pFrameInfo->enPixelType);
+			return;
+		}
+
+		if(convert)
+		{
+			if(instance->convert_buffer_ == nullptr || 
+				instance->convert_buffer_size_ != pFrameInfo->nWidth * pFrameInfo->nHeight * channel)
 			{
-				instance->convert_buffer_size_ = pFrameInfo->nWidth * pFrameInfo->nHeight;
+				if (instance->convert_buffer_ != nullptr)
+					delete[] instance->convert_buffer_;
+				
+				instance->convert_buffer_size_ = pFrameInfo->nWidth * pFrameInfo->nHeight * channel;
 				if (instance->convert_buffer_size_ % 16 != 0)
 				{
 					LOG_E("invalid buffer size {} x {}", pFrameInfo->nWidth, pFrameInfo->nHeight);
@@ -323,7 +381,6 @@ void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_O
 					LOG_E("malloc convert buffer fail");
 					return;
 				}
-				//HY_LOG_SEV(debug) << "convert buffer malloc, size " << instance->convert_buffer_size_;
 			}
 
 			MV_CC_PIXEL_CONVERT_PARAM param = { 0 };
@@ -333,7 +390,7 @@ void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_O
 			param.pSrcData = pImage;      
 			param.nSrcDataLen = pFrameInfo->nFrameLen;  
 			param.enSrcPixelType = pFrameInfo->enPixelType;  
-			param.enDstPixelType = PixelType_Gvsp_Mono8;
+			param.enDstPixelType = enDstPixelType;
 			param.pDstBuffer = instance->convert_buffer_;
 			param.nDstBufferSize = instance->convert_buffer_size_;
 			int code = MV_CC_ConvertPixelType(instance->handle_, &param);
@@ -342,12 +399,55 @@ void __stdcall HiKCameraPlugin::ImageCallBack(unsigned char * pImage, MV_FRAME_O
                 LOG_E("convert pixel type fail, error {:#x}", static_cast<uint32_t>(code));
 				return;
 			}
-			img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, instance->convert_buffer_);
+			img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, 
+				channel == 1 ? CV_8UC1 : CV_8UC3, instance->convert_buffer_);
 		}
 		else
 		{
 			img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, pImage);
 		}
+
+		// if (pFrameInfo->enPixelType != PixelType_Gvsp_Mono8)
+		// {
+		// 	if (instance->convert_buffer_ == nullptr)
+		// 	{
+		// 		instance->convert_buffer_size_ = pFrameInfo->nWidth * pFrameInfo->nHeight;
+		// 		if (instance->convert_buffer_size_ % 16 != 0)
+		// 		{
+		// 			LOG_E("invalid buffer size {} x {}", pFrameInfo->nWidth, pFrameInfo->nHeight);
+		// 			return;
+		// 		}
+		// 		instance->convert_buffer_ = new uint8_t[instance->convert_buffer_size_];
+		// 		if (instance->convert_buffer_ == nullptr)
+		// 		{
+		// 			LOG_E("malloc convert buffer fail");
+		// 			return;
+		// 		}
+		// 		//HY_LOG_SEV(debug) << "convert buffer malloc, size " << instance->convert_buffer_size_;
+		// 	}
+
+		// 	MV_CC_PIXEL_CONVERT_PARAM param = { 0 };
+		// 	memset(&param, 0, sizeof(MV_CC_PIXEL_CONVERT_PARAM));
+		// 	param.nWidth = pFrameInfo->nWidth; 
+		// 	param.nHeight = pFrameInfo->nHeight;  
+		// 	param.pSrcData = pImage;      
+		// 	param.nSrcDataLen = pFrameInfo->nFrameLen;  
+		// 	param.enSrcPixelType = pFrameInfo->enPixelType;  
+		// 	param.enDstPixelType = PixelType_Gvsp_Mono8;
+		// 	param.pDstBuffer = instance->convert_buffer_;
+		// 	param.nDstBufferSize = instance->convert_buffer_size_;
+		// 	int code = MV_CC_ConvertPixelType(instance->handle_, &param);
+		// 	if (code != MV_OK)
+		// 	{
+        //         LOG_E("convert pixel type fail, error {:#x}", static_cast<uint32_t>(code));
+		// 		return;
+		// 	}
+		// 	img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, instance->convert_buffer_);
+		// }
+		// else
+		// {
+		// 	img = cv::Mat(pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC1, pImage);
+		// }
 				
 		try
 		{
